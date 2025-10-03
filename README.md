@@ -60,7 +60,7 @@ Porque los clientes necesitan manejar fallos correctamente; ayuda a depurar, mej
 
 ---
 
-### Roles y permisos
+## Roles y permisos
 *Explica qué acciones puede realizar cada rol (pasajero, conductor, administrador).*
 - **Pasajero (user:passenger)**
 
@@ -75,7 +75,7 @@ Recibir/aceptar viajes, actualizar estado de viaje (en ruta, llegó, inicié, fi
 Ver/modificar usuarios y conductores, gestionar disputas, ver métricas, emitir reembolsos, inhabilitar cuentas, acceder a logs y reportes. Acceso restringido y auditado.
 
 
-### Recursos principales
+## Recursos principales
 Lista de recursos que manejará tu API (ejemplo: `users`, `rides`, `payments`, `ratings`, etc.).
 
 **Recursos principales**
@@ -91,7 +91,7 @@ Lista de recursos que manejará tu API (ejemplo: `users`, `rides`, `payments`
 - admin (operaciones de backoffice)
 - reports (reportes y métricas)
 
-### Tabla de endpoints
+## Tabla de endpoints
 
 |  # | Método | Ruta  | Descripción    | Parámetros (path / query body)                                                        | Auth                                    |                                    |                         |
 |-:| :----:|:------------------------------- | :------------------------------------------------------------ | :-------------------------------------------------------------------------------------- | :-------------------------------------- | ---------------------------------- | ----------------------- |
@@ -117,7 +117,7 @@ Lista de recursos que manejará tu API (ejemplo: `users`, `rides`, `payments`
 | 20 |  POST  | `/v1/ratings`                    | Crear calificación entre usuario y conductor                  | body: `{rideId,score,comment,for: "driver"                                              | "passenger"}`                           | requiere token                     |                         |
 
 ---
-### Flujos de uso 
+## Flujos de uso 
 
 **Flujo A — Solicitud, aceptación y finalización de un viaje**
 **Pasajero**: calcula estimación → GET /v1/rides/estimate.
@@ -160,3 +160,93 @@ Lista de recursos que manejará tu API (ejemplo: `users`, `rides`, `payments`
 **2.** Si hay disputa (conductor o pasajero): POST /v1/support/tickets con evidencia.
 
 **3**. Admin revisa GET /v1/support/tickets/:ticketId, decide acción (reembolso, suspensión), aplica POST /v1/payments/refund o PATCH /v1/admin/users/:userId/status.
+
+
+---
+## Decisiones de diseño y justificación
+
+- **Uso de los métodos HTTP**
+
+Definí GET solo para consultas, POST para crear, PUT/PATCH para actualizaciones y DELETE para eliminaciones. Esto ayuda a que la API sea clara y fácil de entender.
+
+- **Separación de recursos**
+
+Cada recurso (ej. rides, payments, ratings) tiene sus propios endpoints. Así se evita confusión y se mantiene la API modular.
+
+- **Autenticación y privacidad**
+
+Marqué claramente qué endpoints son públicos (ej. registro, login) y cuáles requieren autenticación (ej. solicitar un viaje, pagar, calificar). Esto protege la información confidencial del usuario.
+
+- **Seguridad de datos sensibles**
+
+No expongo contraseñas, información financiera completa ni ubicación exacta sin permisos. La ubicación en tiempo real, por ejemplo, solo puede verse en un viaje activo.
+
+- **Versionado desde el inicio**
+
+Decidí usar /v1/... en todas las rutas. Esto facilita futuras actualizaciones sin romper la versión actual.
+
+- **Respuestas consistentes**
+
+Todas las respuestas siguen un mismo formato JSON con claves como success, data, message o error. Así, los clientes que consumen la API saben qué esperar siempre.
+
+- **Manejo de casos especiales**
+
+Ejemplo: si un pasajero solicita un viaje y no hay conductores disponibles, la API responde con un mensaje claro en lugar de un error.
+
+--- 
+
+## Manejo de errores
+
+**400 — Parámetros inválidos**
+
+- **Situación**: POST /v1/rides sin pickup o con coordenadas fuera de rango.
+
+- **Respuesta**: 400, code: "INVALID_REQUEST".
+
+**401 — Token expirado**
+
+- **Situación**: token JWT expirado al llamar /v1/users/me.
+
+- **Respuesta**: 401, code: "TOKEN_EXPIRED", detalle sugiere POST /v1/auth/refresh.
+
+**403 — Rol insuficiente**
+
+- **Situación**: pasajero intenta PATCH /v1/drivers/:id/status.
+
+- **Respuesta**: 403, code: "INSUFFICIENT_ROLE".
+
+**404 — Viaje no encontrado**
+
+- **Situación**: consulta /v1/rides/abc con id inexistente.
+
+- **Respuesta**: 404, code: "RIDE_NOT_FOUND".
+
+**409 — Conflicto (race) / aceptado por otro conductor**
+
+- **Situación**: dos conductores intentan aceptar la misma solicitud; uno ya la aceptó.
+
+- **Respuesta**: 409, code: "RIDE_ALREADY_ACCEPTED".
+
+```
+{
+  "error": {
+    "code": "INVALID_REQUEST",
+    "message": "Descripción legible del error",
+    "detail": "Opcional: más detalle técnico",
+    "traceId": "uuid-1234"
+  }
+}
+```
+
+
+## Propuestas de mejora
+
+- **1. Soporte multi-modal y pooling**: rutas y optimizaciones para viajes compartidos (pool) y rutas múltiples.
+
+- **2. Sistema de ML para precios dinámicos**: surge/optimización de tarifas basadas en demanda/tiempo real.
+
+- **3. Integración con KYC y verificación avanzada**: verificación de identidad por terceros y checks de seguridad.
+
+- **4**. Programación de viajes y predicciones**: reservar viajes futuros, integración con calendario.
+
+- **5. Marketplace de servicios**: añadir servicios adicionales (entregas, cargas) y promoción/promo codes avanzados.
